@@ -1,8 +1,27 @@
 # 📥 Telegram Media Downloader
 
-**Baixe vídeos, fotos e arquivos de qualquer grupo ou canal do Telegram** direto pelo terminal — sem precisar do app instalado.
+**Baixe vídeos, fotos e arquivos de grupos/canais do Telegram direto pelo terminal.**
 
-Script Python leve e interativo que usa a API oficial do Telegram (MTProto) para listar seus grupos/canais e baixar toda a mídia com barra de progresso, resumo de tamanho e suporte a retomada de downloads interrompidos.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Telethon](https://img.shields.io/badge/Telethon-MTProto_API-orange.svg)](https://github.com/LonamiWebs/Telethon)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+Script Python leve e interativo que usa a API oficial do Telegram (MTProto) para listar seus grupos/canais e baixar toda a mídia com barra de progresso, resumo de tamanho e suporte a retomada de downloads interrompidos. Sem precisar do app instalado.
+
+---
+
+## Sumário
+
+- [Funcionalidades](#-funcionalidades)
+- [Início Rápido](#-início-rápido)
+- [Como Usar](#-como-usar)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Segurança](#-segurança)
+- [FAQ](#-faq)
+- [Tecnologias](#-tecnologias)
+- [Contribuindo](#-contribuindo)
+- [Licença](#-licença)
 
 ---
 
@@ -114,6 +133,8 @@ telegram-media-downloader/
 ├── telegram_downloader.py  # Script principal
 ├── requirements.txt        # Dependências Python
 ├── README.md               # Este arquivo
+├── CONTRIBUTING.md          # Guia de contribuição
+├── LICENSE                  # Licença MIT
 └── .gitignore              # Arquivos ignorados pelo git
 ```
 
@@ -169,12 +190,18 @@ Das mensagens mais antigas para as mais recentes (de cima para baixo no chat).
 
 ---
 
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Veja o [guia de contribuição](CONTRIBUTING.md) para saber como participar.
+
+---
+
 ## 📝 Licença
 
 Este projeto é distribuído sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ---
 
-## ⭐ Gostou? Deixe uma estrela!
+**⭐ Gostou? Deixe uma estrela!**
 
 Se este projeto te ajudou, considere dar uma ⭐ no repositório. Isso ajuda outras pessoas a encontrá-lo!
