@@ -194,20 +194,6 @@ def save_download_log(log: dict):
         logger.warning("Falha ao salvar log de download: %s", e)
 
 
-def verify_file_integrity(file_path: Path, expected_size: int | None) -> bool:
-    if not file_path.exists():
-        return False
-    if expected_size is None:
-        return True
-    actual_size = file_path.stat().st_size
-    if actual_size != expected_size:
-        logger.warning(
-            "Tamanho incorreto: %s (esperado %d, obteve %d)",
-            file_path.name, expected_size, actual_size,
-        )
-        return False
-    return True
-
 
 def check_disk_space(path: Path, required_bytes: int) -> bool:
     free = shutil.disk_usage(path).free
@@ -230,11 +216,6 @@ async def download_with_retry(client: TelegramClient, message, file_path: Path, 
             )
             if show_progress:
                 print()
-
-            if not verify_file_integrity(file_path, expected_size):
-                if file_path.exists():
-                    file_path.unlink()
-                raise IOError(f"Arquivo corrompido (tamanho não confere): {file_path.name}")
 
             return True
 
