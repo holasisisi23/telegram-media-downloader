@@ -8,6 +8,7 @@ import sys
 import asyncio
 import json
 import logging
+import shutil
 import time
 from pathlib import Path
 
@@ -28,6 +29,8 @@ LOG_FILE = Path(__file__).parent / "download_log.json"
 MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 5
 MAX_RETRY_DELAY = 300
+MAX_CONCURRENT_DOWNLOADS = 3
+DOWNLOAD_DELAY = 1.0
 
 logging.basicConfig(
     level=logging.WARNING,
@@ -151,13 +154,28 @@ def classify_media(message) -> str | None:
     return None
 
 
-def progress_callback(current, total):
-    percent = (current / total) * 100
-    bar_length = 30
-    filled = int(bar_length * current // total)
-    bar = "█" * filled + "░" * (bar_length - filled)
-    sys.stdout.write(f"\r  [{bar}] {percent:.1f}% ({format_size(current)}/{format_size(total)})")
-    sys.stdout.flush()
+class DownloadProgress:
+    def __init__(self):
+        self.start_time = time.time()
+
+    def callback(self, current, total):
+        elapsed = time.time() - self.start_time
+        speed = current / elapsed if elapsed > 0.5 else 0
+        remaining = (total - current) / speed if speed > 0 else 0
+
+        percent = (current / total) * 100
+        bar_length = 30
+        filled = int(bar_length * current // total)
+        bar = "█" * filled + "░" * (bar_length - filled)
+
+        speed_str = f"{format_size(int(speed))}/s" if speed > 0 else "calculando..."
+        eta_str = time.strftime("%M:%S", time.gmtime(remaining)) if speed > 0 else "--:--"
+
+        sys.stdout.write(
+            f"\r  [{bar}] {percent:.1f}% ({format_size(current)}/{format_size(total)}) "
+            f"{speed_str} ETA: {eta_str}  "
+        )
+        sys.stdout.flush()
 
 
 def load_download_log() -> dict:
@@ -191,15 +209,27 @@ def verify_file_integrity(file_path: Path, expected_size: int | None) -> bool:
     return True
 
 
-async def download_with_retry(client: TelegramClient, message, file_path: Path, expected_size: int | None) -> bool:
+def check_disk_space(path: Path, required_bytes: int) -> bool:
+    free = shutil.disk_usage(path).free
+    if free < required_bytes * 1.1:
+        print(f"\n  ⚠  Espaço em disco pode ser insuficiente!")
+        print(f"     Necessário: ~{format_size(required_bytes)}")
+        print(f"     Disponível: {format_size(free)}")
+        return False
+    return True
+
+
+async def download_with_retry(client: TelegramClient, message, file_path: Path, expected_size: int | None, show_progress: bool = True) -> bool:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
+            progress = DownloadProgress() if show_progress else None
             await client.download_media(
                 message,
                 file=str(file_path),
-                progress_callback=progress_callback,
+                progress_callback=progress.callback if progress else None,
             )
-            print()
+            if show_progress:
+                print()
 
             if not verify_file_integrity(file_path, expected_size):
                 if file_path.exists():
@@ -315,7 +345,21 @@ async def download_media_from_group(client: TelegramClient, group, media_types: 
         print(f"  📄 Documentos: {stats['counts']['document']}")
     print(f"  📦 Total:      {total_items} arquivos")
     print(f"  💾 Tamanho:    ~{format_size(stats['total_size'])} (sem contar fotos)")
-    print(f"  {'='*45}\n")
+    is_parallel = MAX_CONCURRENT_DOWNLOADS > 1
+    if is_parallel:
+        print(f"  🚀 Modo:       {MAX_CONCURRENT_DOWNLOADS} downloads simultâneos")
+    print(f"  {'='*45}")
+
+    if stats["total_size"] > 0 and not check_disk_space(download_dir, stats["total_size"]):
+        try:
+            cont = input("\n  Deseja continuar mesmo assim? (s/n): ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print("\nCancelado.")
+            return
+        if cont != "s":
+            print("⏭  Download cancelado.\n")
+            return
+    print()
 
     try:
         confirma = input("👉 Deseja continuar com o download? (s/n): ").strip().lower()
@@ -328,17 +372,10 @@ async def download_media_from_group(client: TelegramClient, group, media_types: 
         return
 
     print(f"\n📂 Salvando em: {download_dir}")
-    print(f"🔍 Baixando mídia de '{group.name}'...\n")
+    print(f"📋 Preparando lista de downloads...\n")
 
-    downloaded = 0
+    pending = []
     skipped = 0
-    error_count = 0
-    start_time = time.time()
-
-    download_log = load_download_log()
-    group_log_key = group_name
-    if group_log_key not in download_log:
-        download_log[group_log_key] = {"failed_files": [], "completed": 0, "errors": 0}
 
     async for message in client.iter_messages(group.entity, limit=limit, reverse=True):
         media_type = classify_media(message)
@@ -363,24 +400,57 @@ async def download_media_from_group(client: TelegramClient, group, media_types: 
                 skipped += 1
                 continue
 
-        size_str = f" ({format_size(expected_size)})" if expected_size else ""
-        current = downloaded + skipped + error_count + 1
-        print(f"⬇  [{current}/{total_items}] [{media_type.upper()}] {file_name}{size_str}")
+        pending.append((message, media_type, file_name, file_path, expected_size))
 
-        success = await download_with_retry(client, message, file_path, expected_size)
+    if not pending:
+        print(f"✅ Todos os {skipped} arquivos já foram baixados!\n")
+        return
 
-        if success:
-            downloaded += 1
-            download_log[group_log_key]["completed"] = downloaded
-        else:
-            error_count += 1
-            download_log[group_log_key]["errors"] = error_count
-            if file_name not in download_log[group_log_key]["failed_files"]:
-                download_log[group_log_key]["failed_files"].append(file_name)
-            print(f"  💀 Falha permanente após {MAX_RETRIES} tentativas: {file_name}")
+    print(f"  📥 {len(pending)} para baixar | ⏭ {skipped} já existem\n")
 
-        if (downloaded + error_count) % 5 == 0:
-            save_download_log(download_log)
+    downloaded = 0
+    error_count = 0
+    start_time = time.time()
+
+    download_log = load_download_log()
+    group_log_key = group_name
+    if group_log_key not in download_log:
+        download_log[group_log_key] = {"failed_files": [], "completed": 0, "errors": 0}
+
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
+
+    async def download_one(item_index: int, message, media_type: str, file_name: str, file_path: Path, expected_size: int | None):
+        nonlocal downloaded, error_count
+
+        async with semaphore:
+            if is_parallel:
+                await asyncio.sleep(DOWNLOAD_DELAY)
+
+            size_str = f" ({format_size(expected_size)})" if expected_size else ""
+            print(f"⬇  [{item_index}/{len(pending)}] [{media_type.upper()}] {file_name}{size_str}")
+
+            success = await download_with_retry(client, message, file_path, expected_size, show_progress=not is_parallel)
+
+            if success:
+                downloaded += 1
+                download_log[group_log_key]["completed"] = downloaded
+                if is_parallel:
+                    print(f"  ✅ {file_name} — concluído ({downloaded}/{len(pending)})")
+            else:
+                error_count += 1
+                download_log[group_log_key]["errors"] = error_count
+                if file_name not in download_log[group_log_key]["failed_files"]:
+                    download_log[group_log_key]["failed_files"].append(file_name)
+                print(f"  💀 Falha permanente após {MAX_RETRIES} tentativas: {file_name}")
+
+            if (downloaded + error_count) % 5 == 0:
+                save_download_log(download_log)
+
+    tasks = [
+        download_one(i + 1, msg, mt, fn, fp, es)
+        for i, (msg, mt, fn, fp, es) in enumerate(pending)
+    ]
+    await asyncio.gather(*tasks)
 
     save_download_log(download_log)
     elapsed = time.time() - start_time
